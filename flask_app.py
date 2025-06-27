@@ -16,7 +16,7 @@ import os
 import traceback
 import calendar
 from dotenv import load_dotenv
-import tempfile  # Добавлен новый импорт
+import tempfile
 
 # Загрузка переменных окружения из .env файла
 load_dotenv()
@@ -37,10 +37,47 @@ def parse_datetime(dt_str):
     except (TypeError, ValueError):
         return datetime.now(pytz.utc)
 
+# Функция создания начального состояния
+def create_initial_state():
+    """Создает начальное состояние счетчиков"""
+    now = datetime.now(pytz.utc)
+    return {
+        "deepseek_request_counter": {
+            "count": 100,
+            "date": now.date(),
+            "last_reset": now
+        },
+        "claude_request_counter": {
+            "count": 10,
+            "date": now.date(),
+            "last_reset": now
+        },
+        "hf_request_counter": {
+            "image": {
+                "count": 31,
+                "date": now.date()
+            }
+        },
+        "kandinsky_request_counter": {
+            "image": {
+                "count": 0,
+                "date": now.date(),
+                "monthly_limit_reset": "2025-07-01"
+            }
+        }
+    }
+
 # Функция загрузки состояния из файла
 def load_usage_state():
     """Загружает состояние использования из файла"""
     try:
+        # Если файл не существует, создаем начальное состояние
+        if not os.path.exists(STATE_FILE_PATH):
+            logger.warning(f"Файл состояния {STATE_FILE_PATH} не найден, создаем новый")
+            initial_state = create_initial_state()
+            save_usage_state(initial_state)
+            return initial_state
+            
         with open(STATE_FILE_PATH, 'r') as f:
             state = json.load(f)
         
@@ -65,36 +102,11 @@ def load_usage_state():
         
         return state
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
-        # Создаем файл при первом запуске
+        # Создаем файл при ошибке загрузки
         logger.error(f"Ошибка загрузки состояния: {str(e)}")
-        now = datetime.now(pytz.utc)
-        state = {
-            "deepseek_request_counter": {
-                "count": 100,
-                "date": now.date(),
-                "last_reset": now
-            },
-            "claude_request_counter": {
-                "count": 10,
-                "date": now.date(),
-                "last_reset": now
-            },
-            "hf_request_counter": {
-                "image": {
-                    "count": 31,
-                    "date": now.date()
-                }
-            },
-            "kandinsky_request_counter": {
-                "image": {
-                    "count": 0,
-                    "date": now.date(),
-                    "monthly_limit_reset": "2025-07-01"  # Дата сброса месячного лимита
-                }
-            }
-        }
-        save_usage_state(state)  # Сохраняем начальное состояние
-        return state
+        initial_state = create_initial_state()
+        save_usage_state(initial_state)
+        return initial_state
 
 # Функция сохранения состояния в файл
 def save_usage_state(state):
@@ -131,6 +143,7 @@ def save_usage_state(state):
     try:
         with open(STATE_FILE_PATH, 'w') as f:
             json.dump(save_state, f, indent=2)
+        logger.info(f"Состояние сохранено в {STATE_FILE_PATH}")
     except Exception as e:
         logger.error(f"Ошибка сохранения состояния: {str(e)}")
 
@@ -152,8 +165,8 @@ app = Flask(__name__)
 # === КОНФИГУРАЦИЯ ===
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "7937989706:AAGS7vojWYAXow1lkWwyE3KYZZJ9Ij2rI9o")
 
-# DeepSeek R1 через OpenRouter
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "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")
+# DeepSeek R1 через OpenRouter (НОВЫЙ КЛЮЧ)
+OPENROUTER_API_KEY = "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"
 OPENROUTER_MODEL = "deepseek/deepseek-r1"
 
 # Hugging Face для генерации изображений (резервный вариант) - ВРЕМЕННО ОТКЛЮЧЕН
