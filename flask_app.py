@@ -35,9 +35,13 @@ def parse_datetime(dt_str):
 
 # Функция загрузки состояния из файла
 def load_usage_state():
+    # Временный код для отладки
+    print("Текущая рабочая директория:", os.getcwd())
+    print("Содержимое директории:", os.listdir())
+    # Конец временного кода
+    
     try:
         with open('usage_state.json', 'r') as f:
-            state = json.load(f)
         
         # Универсальное преобразование дат
         for counter in ["deepseek_request_counter", "claude_request_counter"]:
