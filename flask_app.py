@@ -124,7 +124,8 @@ def save_usage_state(state):
 
 # Настройка логирования
 log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-log_handler = RotatingFileHandler('bot.log', maxBytes=5*1024*1024, backupCount=3)
+# Создаем временный файл для логов в /tmp
+log_handler = RotatingFileHandler('/tmp/bot.log', maxBytes=5*1024*1024, backupCount=3)
 log_handler.setFormatter(log_formatter)
 
 logger = logging.getLogger()
