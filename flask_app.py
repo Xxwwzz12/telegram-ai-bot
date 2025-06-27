@@ -1,5 +1,3 @@
-from dotenv import load_dotenv
-load_dotenv()  # Загружает переменные окружения из .env файла
 from flask import Flask, request, jsonify
 import requests
 import json
@@ -17,6 +15,10 @@ import re
 import os
 import traceback
 import calendar
+from dotenv import load_dotenv
+
+# Загрузка переменных окружения из .env файла
+load_dotenv()
 
 # Универсальный парсер дат
 def parse_datetime(dt_str):
@@ -58,9 +60,10 @@ def load_usage_state():
         
         return state
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
+        # Создаем файл при первом запуске
         logger.error(f"Ошибка загрузки состояния: {str(e)}")
         now = datetime.now(pytz.utc)
-        return {
+        state = {
             "deepseek_request_counter": {
                 "count": 100,
                 "date": now.date(),
@@ -85,6 +88,8 @@ def load_usage_state():
                 }
             }
         }
+        save_usage_state(state)  # Сохраняем начальное состояние
+        return state
 
 # Функция сохранения состояния в файл
 def save_usage_state(state):
@@ -248,7 +253,7 @@ def increment_counter(counter):
     if "date" in counter:
         check_reset_counter(counter)
     counter["count"] += 1
-    save_usage_state(usage_state)
+    save_usage_state(state=usage_state)
 
 def can_make_request(counter, max_requests):
     """Проверяет возможность выполнения запроса"""
@@ -287,7 +292,7 @@ def send_help(chat_id):
     """Отправляет справку по командам"""
     text = "📋 <b>Доступные команды:</b>\n\n"
     text += "/start - Запустить бота\n"
-    text += "/toggle - Включить/выключить бота\n"
+    text += "/toggle - Вкл/выкл бота\n"
     text += "/clear - Очистить историю диалога\n"
     text += "/usage - Показать статистику использования\n"
     text += "/help - Показать эту справку\n\n"
