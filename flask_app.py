@@ -36,10 +36,6 @@ def parse_datetime(dt_str):
 # Функция загрузки состояния из файла
 def load_usage_state():
     """Загружает состояние использования из файла"""
-    # Временный код для отладки
-    print("Текущая рабочая директория:", os.getcwd())
-    print("Содержимое директории:", os.listdir())
-    
     try:
         with open('usage_state.json', 'r') as f:
             state = json.load(f)
@@ -148,7 +144,6 @@ app = Flask(__name__)
 
 # === КОНФИГУРАЦИЯ ===
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "7937989706:AAGS7vojWYAXow1lkWwyE3KYZZJ9Ij2rI9o")
-PYTHONANYWHERE_USERNAME = os.getenv("PYTHONANYWHERE_USERNAME", "Xxwwzz")
 
 # DeepSeek R1 через OpenRouter
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "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")
@@ -475,7 +470,7 @@ def process_deepseek_request(chat_id, messages, multimodal=False):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "HTTP-Referer": f"https://{PYTHONANYWHERE_USERNAME}.pythonanywhere.com",
+        "HTTP-Referer": f"https://Xxwwzz-telegram-ai-bot.hf.space",
         "X-Title": "Telegram AI Assistant"
     }
 
@@ -645,7 +640,10 @@ def set_webhook():
         logger.error(f"Ошибка удаления вебхука: {str(e)}")
 
     # Теперь установим новый
-    webhook_url = f"https://{PYTHONANYWHERE_USERNAME}.pythonanywhere.com/webhook"
+    SPACE_ID = os.getenv('SPACE_ID', 'Xxwwzz/telegram-ai-bot')
+    SPACE_HOST = SPACE_ID.replace('/', '-') + '.hf.space'
+    webhook_url = f"https://{SPACE_HOST}/webhook"
+    
     try:
         response = requests.get(
             f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setWebhook",
@@ -675,8 +673,12 @@ def check_webhook():
 
 def setup_webhook():
     """Устанавливает вебхук для Telegram бота"""
-    webhook_url = f"https://{PYTHONANYWHERE_USERNAME}.pythonanywhere.com/webhook"
-    
+    # Получаем хост пространства
+    SPACE_ID = os.getenv('SPACE_ID', 'Xxwwzz/telegram-ai-bot')
+    SPACE_HOST = SPACE_ID.replace('/', '-') + '.hf.space'
+    webhook_url = f"https://{SPACE_HOST}/webhook"
+    logger.info(f"Устанавливаем вебхук на URL: {webhook_url}")
+
     # Удаляем старый вебхук
     delete_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/deleteWebhook"
     try:
