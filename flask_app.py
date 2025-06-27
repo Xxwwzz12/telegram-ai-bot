@@ -95,58 +95,6 @@ def load_usage_state():
         }
         save_usage_state(state)  # Сохраняем начальное состояние
         return state
-        
-        # Универсальное преобразование дат
-        for counter in ["deepseek_request_counter", "claude_request_counter"]:
-            if counter in state:
-                state[counter]["last_reset"] = parse_datetime(state[counter]["last_reset"])
-                state[counter]["date"] = parse_datetime(state[counter]["date"]).date()
-        
-        if "hf_request_counter" in state and "image" in state["hf_request_counter"]:
-            state["hf_request_counter"]["image"]["date"] = parse_datetime(
-                state["hf_request_counter"]["image"]["date"]
-            ).date()
-        
-        if "kandinsky_request_counter" in state and "image" in state["kandinsky_request_counter"]:
-            state["kandinsky_request_counter"]["image"]["date"] = parse_datetime(
-                state["kandinsky_request_counter"]["image"]["date"]
-            ).date()
-            # Добавляем поле monthly_limit_reset, если его нет
-            if "monthly_limit_reset" not in state["kandinsky_request_counter"]["image"]:
-                state["kandinsky_request_counter"]["image"]["monthly_limit_reset"] = "2025-07-01"
-        
-        return state
-    except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
-        # Создаем файл при первом запуске
-        logger.error(f"Ошибка загрузки состояния: {str(e)}")
-        now = datetime.now(pytz.utc)
-        state = {
-            "deepseek_request_counter": {
-                "count": 100,
-                "date": now.date(),
-                "last_reset": now
-            },
-            "claude_request_counter": {
-                "count": 10,
-                "date": now.date(),
-                "last_reset": now
-            },
-            "hf_request_counter": {
-                "image": {
-                    "count": 31,
-                    "date": now.date()
-                }
-            },
-            "kandinsky_request_counter": {
-                "image": {
-                    "count": 0,
-                    "date": now.date(),
-                    "monthly_limit_reset": "2025-07-01"  # Дата сброса месячного лимита
-                }
-            }
-        }
-        save_usage_state(state)  # Сохраняем начальное состояние
-        return state
 
 # Функция сохранения состояния в файл
 def save_usage_state(state):
@@ -715,6 +663,44 @@ def set_webhook():
         logger.error(f"Ошибка установки вебхука: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/check_webhook')
+def check_webhook():
+    """Проверяет состояние вебхука"""
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getWebhookInfo"
+        response = requests.get(url, timeout=10).json()
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+def setup_webhook():
+    """Устанавливает вебхук для Telegram бота"""
+    webhook_url = f"https://{PYTHONANYWHERE_USERNAME}.pythonanywhere.com/webhook"
+    
+    # Удаляем старый вебхук
+    delete_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/deleteWebhook"
+    try:
+        response = requests.get(delete_url, params={"drop_pending_updates": True}, timeout=10)
+        logger.info(f"Старый вебхук удалён: {response.json()}")
+    except Exception as e:
+        logger.error(f"Ошибка удаления вебхука: {str(e)}")
+
+    # Устанавливаем новый вебхук
+    set_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setWebhook"
+    payload = {
+        "url": webhook_url,
+        "max_connections": 100,
+        "drop_pending_updates": True
+    }
+
+    try:
+        response = requests.post(set_url, json=payload, timeout=15)
+        logger.info(f"Вебхук установлен: {response.json()}")
+        return response.json()
+    except Exception as e:
+        logger.error(f"Ошибка установки вебхука: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     # Проверка доступности Telegram API
@@ -909,17 +895,13 @@ if __name__ == '__main__':
 
     logger.info("Запуск сервера с настройкой меню")
 
-    # Сброс вебхука для очистки старого состояния
-    delete_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/deleteWebhook"
-    try:
-        response = requests.get(delete_url, params={"drop_pending_updates": True}, timeout=10)
-        logger.info(f"Вебхук сброшен: {response.json()}")
-    except Exception as e:
-        logger.error(f"Ошибка сброса вебхука: {str(e)}")
-
     # Устанавливаем команды и кнопку меню
     set_bot_commands()
     set_menu_button()
+
+    # Устанавливаем вебхук
+    webhook_result = setup_webhook()
+    logger.info(f"Результат установки вебхука: {webhook_result}")
 
     # Дополнительная диагностика
     try:
@@ -928,8 +910,5 @@ if __name__ == '__main__':
         logger.debug(f"Текущие команды: {response.json()}")
     except Exception as e:
         logger.error(f"Ошибка проверки команд: {str(e)}")
-
-    # Устанавливаем вебхук
-    set_webhook()
 
     app.run(debug=True)
