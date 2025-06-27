@@ -1,0 +1,25 @@
+{
+  "deepseek_request_counter": {
+    "count": 100,
+    "date": "2025-06-27",
+    "last_reset": "2025-06-27T00:00:00+00:00"
+  },
+  "claude_request_counter": {
+    "count": 10,
+    "date": "2025-06-27",
+    "last_reset": "2025-06-27T00:00:00+00:00"
+  },
+  "hf_request_counter": {
+    "image": {
+      "count": 31,
+      "date": "2025-06-27"
+    }
+  },
+  "kandinsky_request_counter": {
+    "image": {
+      "count": 0,
+      "date": "2025-06-27",
+      "monthly_limit_reset": "2025-07-01"
+    }
+  }
+}
