@@ -166,7 +166,7 @@ app = Flask(__name__)
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "7937989706:AAGS7vojWYAXow1lkWwyE3KYZZJ9Ij2rI9o")
 
 # DeepSeek R1 через OpenRouter (РАБОЧИЙ КЛЮЧ)
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "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"
 OPENROUTER_MODEL = "deepseek/deepseek-r1"
 
 # Hugging Face для генерации изображений (резервный вариант) - ВРЕМЕННО ОТКЛЮЧЕН
