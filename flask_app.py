@@ -619,19 +619,13 @@ def generate_image(chat_id, prompt):
 
 # Вебхук и обработка сообщений
 @app.route('/set_webhook', methods=['GET'])
-def set_webhook():
-    # Проверка доступности API Telegram
-    try:
-        test_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getMe"
-        response = requests.get(test_url, timeout=10)
-        if response.status_code != 200:
-            logger.error(f"Telegram API не отвечает: {response.status_code}")
-            return jsonify({"status": "api_unavailable"}), 500
-    except Exception as e:
-        logger.error(f"Ошибка подключения к Telegram API: {str(e)}")
-        return jsonify({"status": "connection_error"}), 500
+def setup_webhook():
+    """Устанавливает вебхук для Telegram бота"""
+    # Явно указываем правильный URL
+    webhook_url = "https://Xxwwzz-telegram-ai-bot.hf.space/webhook"
+    logger.info(f"Устанавливаем вебхук на URL: {webhook_url}")
 
-    # Сначала удалим старый вебхук
+    # Удаляем старый вебхук
     delete_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/deleteWebhook"
     try:
         response = requests.get(delete_url, params={"drop_pending_updates": True}, timeout=10)
@@ -639,27 +633,21 @@ def set_webhook():
     except Exception as e:
         logger.error(f"Ошибка удаления вебхука: {str(e)}")
 
-    # Теперь установим новый
-    SPACE_ID = os.getenv('SPACE_ID', 'Xxwwzz/telegram-ai-bot')
-    SPACE_HOST = SPACE_ID.replace('/', '-') + '.hf.space'
-    webhook_url = f"https://{SPACE_HOST}/webhook"
-    
+    # Устанавливаем новый вебхук
+    set_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setWebhook"
+    payload = {
+        "url": webhook_url,
+        "max_connections": 100,
+        "drop_pending_updates": True
+    }
+
     try:
-        response = requests.get(
-            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setWebhook",
-            params={
-                "url": webhook_url,
-                "drop_pending_updates": True,
-                "max_connections": 100,
-                "allowed_updates": json.dumps(["message"])
-            },
-            timeout=15
-        )
-        logger.info(f"Новый вебхук установлен: {response.json()}")
-        return jsonify(response.json()), 200
+        response = requests.post(set_url, json=payload, timeout=15)
+        logger.info(f"Вебхук установлен: {response.json()}")
+        return response.json()
     except Exception as e:
         logger.error(f"Ошибка установки вебхука: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return {"status": "error", "message": str(e)}
 
 @app.route('/check_webhook')
 def check_webhook():
