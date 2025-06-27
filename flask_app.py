@@ -16,9 +16,13 @@ import os
 import traceback
 import calendar
 from dotenv import load_dotenv
+import tempfile  # Добавлен новый импорт
 
 # Загрузка переменных окружения из .env файла
 load_dotenv()
+
+# Определяем путь к файлу состояния в временной директории
+STATE_FILE_PATH = os.path.join(tempfile.gettempdir(), 'usage_state.json')
 
 # Универсальный парсер дат
 def parse_datetime(dt_str):
@@ -37,7 +41,7 @@ def parse_datetime(dt_str):
 def load_usage_state():
     """Загружает состояние использования из файла"""
     try:
-        with open('usage_state.json', 'r') as f:
+        with open(STATE_FILE_PATH, 'r') as f:
             state = json.load(f)
         
         # Универсальное преобразование дат
@@ -124,8 +128,11 @@ def save_usage_state(state):
                 "monthly_limit_reset": state["kandinsky_request_counter"][key].get("monthly_limit_reset", "2025-07-01")
             }
     
-    with open('usage_state.json', 'w') as f:
-        json.dump(save_state, f, indent=2)
+    try:
+        with open(STATE_FILE_PATH, 'w') as f:
+            json.dump(save_state, f, indent=2)
+    except Exception as e:
+        logger.error(f"Ошибка сохранения состояния: {str(e)}")
 
 # Настройка логирования - только консольный вывод
 logger = logging.getLogger()
@@ -619,13 +626,19 @@ def generate_image(chat_id, prompt):
 
 # Вебхук и обработка сообщений
 @app.route('/set_webhook', methods=['GET'])
-def setup_webhook():
-    """Устанавливает вебхук для Telegram бота"""
-    # Явно указываем правильный URL
-    webhook_url = "https://Xxwwzz-telegram-ai-bot.hf.space/webhook"
-    logger.info(f"Устанавливаем вебхук на URL: {webhook_url}")
+def set_webhook():
+    # Проверка доступности API Telegram
+    try:
+        test_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getMe"
+        response = requests.get(test_url, timeout=10)
+        if response.status_code != 200:
+            logger.error(f"Telegram API не отвечает: {response.status_code}")
+            return jsonify({"status": "api_unavailable"}), 500
+    except Exception as e:
+        logger.error(f"Ошибка подключения к Telegram API: {str(e)}")
+        return jsonify({"status": "connection_error"}), 500
 
-    # Удаляем старый вебхук
+    # Сначала удалим старый вебхук
     delete_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/deleteWebhook"
     try:
         response = requests.get(delete_url, params={"drop_pending_updates": True}, timeout=10)
@@ -633,21 +646,27 @@ def setup_webhook():
     except Exception as e:
         logger.error(f"Ошибка удаления вебхука: {str(e)}")
 
-    # Устанавливаем новый вебхук
-    set_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setWebhook"
-    payload = {
-        "url": webhook_url,
-        "max_connections": 100,
-        "drop_pending_updates": True
-    }
-
+    # Теперь установим новый
+    SPACE_ID = os.getenv('SPACE_ID', 'Xxwwzz/telegram-ai-bot')
+    SPACE_HOST = SPACE_ID.replace('/', '-') + '.hf.space'
+    webhook_url = f"https://{SPACE_HOST}/webhook"
+    
     try:
-        response = requests.post(set_url, json=payload, timeout=15)
-        logger.info(f"Вебхук установлен: {response.json()}")
-        return response.json()
+        response = requests.get(
+            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setWebhook",
+            params={
+                "url": webhook_url,
+                "drop_pending_updates": True,
+                "max_connections": 100,
+                "allowed_updates": json.dumps(["message"])
+            },
+            timeout=15
+        )
+        logger.info(f"Новый вебхук установлен: {response.json()}")
+        return jsonify(response.json()), 200
     except Exception as e:
         logger.error(f"Ошибка установки вебхука: {str(e)}")
-        return {"status": "error", "message": str(e)}
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/check_webhook')
 def check_webhook():
@@ -661,10 +680,8 @@ def check_webhook():
 
 def setup_webhook():
     """Устанавливает вебхук для Telegram бота"""
-    # Получаем хост пространства
-    SPACE_ID = os.getenv('SPACE_ID', 'Xxwwzz/telegram-ai-bot')
-    SPACE_HOST = SPACE_ID.replace('/', '-') + '.hf.space'
-    webhook_url = f"https://{SPACE_HOST}/webhook"
+    # Явно указываем правильный URL
+    webhook_url = "https://Xxwwzz-telegram-ai-bot.hf.space/webhook"
     logger.info(f"Устанавливаем вебхук на URL: {webhook_url}")
 
     # Удаляем старый вебхук
@@ -801,9 +818,9 @@ def fix_menu():
 def reset_state():
     """Сброс файла состояния"""
     try:
-        if os.path.exists('usage_state.json'):
-            os.remove('usage_state.json')
-            logger.info("Файл usage_state.json удалён")
+        if os.path.exists(STATE_FILE_PATH):
+            os.remove(STATE_FILE_PATH)
+            logger.info(f"Файл состояния {STATE_FILE_PATH} удалён")
     except Exception as e:
         logger.error(f"Ошибка удаления файла состояния: {str(e)}")
     
@@ -814,7 +831,7 @@ def reset_state():
     hf_request_counter = usage_state["hf_request_counter"]
     kandinsky_request_counter = usage_state["kandinsky_request_counter"]
     
-    return "Состояние сброшено! Новый файл usage_state.json создан."
+    return f"Состояние сброшено! Новый файл состояния: {STATE_FILE_PATH}"
 
 @app.route('/debug_state')
 def debug_state():
@@ -883,7 +900,8 @@ if __name__ == '__main__':
     # Включаем отладочное логирование
     logger.setLevel(logging.DEBUG)
 
-    logger.info("Запуск сервера с настройкой меню")
+    # Логируем путь к файлу состояния
+    logger.info(f"Используем файл состояния: {STATE_FILE_PATH}")
 
     # Устанавливаем команды и кнопку меню
     set_bot_commands()
