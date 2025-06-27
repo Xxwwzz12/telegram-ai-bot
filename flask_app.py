@@ -35,13 +35,66 @@ def parse_datetime(dt_str):
 
 # Функция загрузки состояния из файла
 def load_usage_state():
+    """Загружает состояние использования из файла"""
     # Временный код для отладки
     print("Текущая рабочая директория:", os.getcwd())
     print("Содержимое директории:", os.listdir())
-    # Конец временного кода
     
     try:
         with open('usage_state.json', 'r') as f:
+            state = json.load(f)
+        
+        # Универсальное преобразование дат
+        for counter in ["deepseek_request_counter", "claude_request_counter"]:
+            if counter in state:
+                state[counter]["last_reset"] = parse_datetime(state[counter]["last_reset"])
+                state[counter]["date"] = parse_datetime(state[counter]["date"]).date()
+        
+        if "hf_request_counter" in state and "image" in state["hf_request_counter"]:
+            state["hf_request_counter"]["image"]["date"] = parse_datetime(
+                state["hf_request_counter"]["image"]["date"]
+            ).date()
+        
+        if "kandinsky_request_counter" in state and "image" in state["kandinsky_request_counter"]:
+            state["kandinsky_request_counter"]["image"]["date"] = parse_datetime(
+                state["kandinsky_request_counter"]["image"]["date"]
+            ).date()
+            # Добавляем поле monthly_limit_reset, если его нет
+            if "monthly_limit_reset" not in state["kandinsky_request_counter"]["image"]:
+                state["kandinsky_request_counter"]["image"]["monthly_limit_reset"] = "2025-07-01"
+        
+        return state
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
+        # Создаем файл при первом запуске
+        logger.error(f"Ошибка загрузки состояния: {str(e)}")
+        now = datetime.now(pytz.utc)
+        state = {
+            "deepseek_request_counter": {
+                "count": 100,
+                "date": now.date(),
+                "last_reset": now
+            },
+            "claude_request_counter": {
+                "count": 10,
+                "date": now.date(),
+                "last_reset": now
+            },
+            "hf_request_counter": {
+                "image": {
+                    "count": 31,
+                    "date": now.date()
+                }
+            },
+            "kandinsky_request_counter": {
+                "image": {
+                    "count": 0,
+                    "date": now.date(),
+                    "monthly_limit_reset": "2025-07-01"  # Дата сброса месячного лимита
+                }
+            }
+        }
+        save_usage_state(state)  # Сохраняем начальное состояние
+        return state
         
         # Универсальное преобразование дат
         for counter in ["deepseek_request_counter", "claude_request_counter"]:
