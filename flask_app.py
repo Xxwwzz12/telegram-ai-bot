@@ -13,7 +13,6 @@ import pytz
 from PIL import Image
 from io import BytesIO
 import logging
-from logging.handlers import RotatingFileHandler
 import re
 import os
 import traceback
@@ -122,15 +121,18 @@ def save_usage_state(state):
     with open('usage_state.json', 'w') as f:
         json.dump(save_state, f, indent=2)
 
-# Настройка логирования
-log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-# Создаем временный файл для логов в /tmp
-log_handler = RotatingFileHandler('/tmp/bot.log', maxBytes=5*1024*1024, backupCount=3)
-log_handler.setFormatter(log_formatter)
-
+# Настройка логирования - только консольный вывод
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-logger.addHandler(log_handler)
+
+# Удаляем все существующие обработчики
+for handler in logger.handlers[:]:
+    logger.removeHandler(handler)
+
+# Добавляем потоковый обработчик
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+logger.addHandler(stream_handler)
 
 app = Flask(__name__)
 
