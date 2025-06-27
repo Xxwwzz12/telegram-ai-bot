@@ -165,7 +165,7 @@ app = Flask(__name__)
 # === КОНФИГУРАЦИЯ ===
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "7937989706:AAGS7vojWYAXow1lkWwyE3KYZZJ9Ij2rI9o")
 
-# DeepSeek R1 через OpenRouter (НОВЫЙ КЛЮЧ)
+# DeepSeek R1 через OpenRouter (РАБОЧИЙ КЛЮЧ)
 OPENROUTER_API_KEY = "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"
 OPENROUTER_MODEL = "deepseek/deepseek-r1"
 
